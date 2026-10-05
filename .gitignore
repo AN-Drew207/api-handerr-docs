@@ -1,0 +1,14 @@
+# Nada de esta carpeta debe subirse a ningún repo.
+# Está fuera de api/ y mobile/ a propósito; este .gitignore es un cinturón extra
+# por si alguna vez se inicializa un repo aquí dentro.
+
+node_modules/
+openapi/
+public/vendor/
+.codegraph/
+
+# Credenciales y tokens locales — NUNCA versionar.
+env.local.json
+.tokens.json
+*.local.json
+!env.example.json

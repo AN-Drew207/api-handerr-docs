@@ -1,0 +1,22 @@
+{
+  "name": "handerr-api-docs",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Referencia local e interactiva de la API de Handerr, generada desde las colecciones de Postman y los serverless.yml del repo api.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/build.mjs && node scripts/serve.mjs",
+    "serve": "node scripts/serve.mjs",
+    "coverage": "node scripts/coverage.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.1120.0",
+    "@scalar/api-reference": "^1.66.1",
+    "amazon-cognito-identity-js": "^6.3.20",
+    "yaml": "^2.8.1"
+  }
+}

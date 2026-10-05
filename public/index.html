@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Handerr — Referencia de API</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        /* Scalar's own hook for a host header above the reference: it offsets
+           the sidebar and every sticky element by exactly this much. */
+        --scalar-custom-header-height: 46px;
+        --bar-bg: #0f1115;
+        --bar-fg: #e6e8ee;
+        --bar-muted: #9aa3b2;
+        --bar-border: #232733;
+        --accent: #6c8cff;
+        --ok: #35c48a;
+        --warn: #e0a13a;
+        --err: #e06c6c;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; }
+      body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+
+      #topbar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 0 16px;
+        height: var(--scalar-custom-header-height);
+        background: var(--bar-bg);
+        color: var(--bar-fg);
+        border-bottom: 1px solid var(--bar-border);
+        font-size: 13px;
+      }
+      #topbar .brand { font-weight: 650; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+      #topbar .brand span.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+      #topbar .spacer { flex: 1; }
+      #topbar a { color: var(--bar-fg); text-decoration: none; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--bar-border); }
+      #topbar a:hover { background: #191d26; border-color: #33394a; }
+      #topbar .muted { color: var(--bar-muted); }
+
+      .pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 4px 10px; border-radius: 999px;
+        background: #191d26; border: 1px solid var(--bar-border);
+        color: var(--bar-muted); font-size: 12px; white-space: nowrap;
+      }
+      .pill b { color: var(--bar-fg); font-weight: 600; }
+      .pill .led { width: 7px; height: 7px; border-radius: 50%; background: var(--bar-muted); }
+      .pill.ok .led { background: var(--ok); }
+      .pill.warn .led { background: var(--warn); }
+      .pill.err .led { background: var(--err); }
+
+      #scalar { min-height: calc(100dvh - var(--scalar-custom-header-height)); }
+
+      #boot { padding: 48px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.7; }
+      #boot code { background: rgba(127,127,127,.15); padding: 2px 6px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <header id="topbar">
+      <div class="brand"><span class="dot"></span> Handerr API</div>
+      <span class="muted" id="docstats"></span>
+      <div class="spacer"></div>
+      <span class="pill" id="token-app"><span class="led"></span> app: <b>—</b></span>
+      <span class="pill" id="token-admin"><span class="led"></span> admin: <b>—</b></span>
+      <a href="/env">Entorno y tokens</a>
+    </header>
+
+    <main id="scalar">
+      <div id="boot">Cargando la referencia…</div>
+    </main>
+
+    <script src="/vendor/scalar.standalone.js"></script>
+    <script>
+      const boot = document.getElementById('boot');
+
+      function fail(message, detail) {
+        boot.innerHTML =
+          '<p><strong>' + message + '</strong></p><p>' + (detail || '') + '</p>' +
+          '<p>Genera los documentos con <code>npm run build</code> dentro de <code>api-docs/</code>.</p>';
+      }
+
+      /** Token status pills, refreshed every 30s. */
+      async function refreshStatus() {
+        try {
+          const res = await fetch('/api/env');
+          const { tokens } = await res.json();
+          for (const profile of ['app', 'admin']) {
+            const pill = document.getElementById('token-' + profile);
+            if (!pill) continue;
+            const status = tokens?.[profile];
+            const label = pill.querySelector('b');
+            pill.classList.remove('ok', 'warn', 'err');
+            if (!status?.hasToken) {
+              label.textContent = 'sin token';
+              pill.classList.add('err');
+            } else if (status.expired) {
+              label.textContent = status.hasRefreshToken ? 'se renueva sola' : 'expirado';
+              pill.classList.add(status.hasRefreshToken ? 'warn' : 'err');
+            } else {
+              label.textContent = Math.max(0, Math.round(status.expiresInSeconds / 60)) + ' min';
+              pill.classList.add('ok');
+            }
+          }
+        } catch {
+          /* server down — leave the pills as they are */
+        }
+      }
+
+      /** Visual overrides live in their own file so they can be edited alone. */
+      async function loadOverrides() {
+        try {
+          return await (await fetch('/scalar-overrides.css')).text();
+        } catch {
+          return '';
+        }
+      }
+
+      async function start() {
+        let index;
+        try {
+          index = await (await fetch('/openapi/index.json')).json();
+        } catch (err) {
+          return fail('No encuentro openapi/index.json', err.message);
+        }
+        if (!index.documents?.length) return fail('No hay documentos generados.');
+
+        const total = index.documents.reduce((n, d) => n + d.operations, 0);
+        const pending = index.documents.reduce((n, d) => n + (d.undocumented || 0), 0);
+        document.getElementById('docstats').textContent =
+          total + ' endpoints' + (pending ? ' · ' + pending + ' sin documentar en Postman' : '');
+
+        const customCss = await loadOverrides();
+        boot.remove();
+
+        Scalar.createApiReference('#scalar', {
+          customCss,
+          sources: index.documents.map((doc, i) => ({
+            title: doc.short || doc.title,
+            slug: doc.slug,
+            url: doc.url,
+            default: i === 0,
+          })),
+          // Every request goes through the local proxy: it resolves {{variables}},
+          // renews the Cognito token and sidesteps CORS.
+          proxyUrl: '/__proxy',
+          persistAuth: true,
+          hideModels: false,
+          hideDarkModeToggle: false,
+          documentDownloadType: 'json',
+          defaultHttpClient: { targetKey: 'shell', clientKey: 'curl' },
+          authentication: {
+            preferredSecurityScheme: 'cognitoIdToken',
+            securitySchemes: {
+              cognitoIdToken: { value: '{{idToken}}' },
+              bearerToken: { token: '{{COGNITO_TOKEN}}' },
+              apiKeyHeader: { value: '{{onboardingApiKey}}' },
+            },
+          },
+        });
+
+        refreshStatus();
+        setInterval(refreshStatus, 30000);
+      }
+
+      start();
+    </script>
+  </body>
+</html>
